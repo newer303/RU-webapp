@@ -1,5 +1,5 @@
 'use client';
-import { BookMarked, Search, Clock, MapPin, Calendar, Info, Plus, X, Save, Edit2, Trash2, AlertTriangle, FileUp } from 'lucide-react';
+import { BookMarked, Search, Clock, MapPin, Calendar, Info, Plus, X, Save, Edit2, Trash2, AlertTriangle, FileUp, CheckCircle } from 'lucide-react';
 import { Course } from '@/types';
 import { useState, useMemo, useRef } from 'react';
 
@@ -7,9 +7,17 @@ interface CoursesTabProps {
   courses: Course[];
   onCourseAdded?: () => void;
   showToast?: (msg: string) => void;
+  addCourseToPlanner?: (course: Course) => void;
+  selectedCourses?: Course[];
 }
 
-export const CoursesTab = ({ courses, onCourseAdded, showToast }: CoursesTabProps) => {
+export const CoursesTab = ({ 
+  courses, 
+  onCourseAdded, 
+  showToast,
+  addCourseToPlanner,
+  selectedCourses = []
+}: CoursesTabProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -237,6 +245,18 @@ export const CoursesTab = ({ courses, onCourseAdded, showToast }: CoursesTabProp
                   <span className="text-blue-700 dark:text-blue-400 font-black text-sm tracking-tight">{course.code}</span>
                 </div>
                 <div className="flex items-center gap-1">
+                  {addCourseToPlanner && (
+                    <button 
+                      onClick={() => addCourseToPlanner(course)}
+                      disabled={selectedCourses.some(c => c.code === course.code)}
+                      className={`p-2 rounded-lg transition-all ${selectedCourses.some(c => c.code === course.code) 
+                        ? 'text-green-500 bg-green-50 dark:bg-green-900/20' 
+                        : 'text-gray-400 dark:text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                      title={selectedCourses.some(c => c.code === course.code) ? 'อยู่ในตารางแล้ว' : 'เพิ่มเข้าตารางเรียน'}
+                    >
+                      {selectedCourses.some(c => c.code === course.code) ? <CheckCircle size={16} /> : <Plus size={16} />}
+                    </button>
+                  )}
                   <button 
                     onClick={() => handleOpenEditModal(course)}
                     className="p-2 text-gray-400 dark:text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"

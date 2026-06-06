@@ -62,7 +62,8 @@ export default function App() {
     totalCompletedCredits, toggleCourseCompletion, updateCourseGrade, handleSaveDegreeSettings,
     gpax,
     handleAddCategory, closeAddCategoryModal, confirmAddCategory, handleDeleteCategory,
-    handleAddCourse, confirmAddCourseToCategory, degreeSearchResults, handleDeleteCourse
+    handleAddCourse, confirmAddCourseToCategory, degreeSearchResults, handleDeleteCourse,
+    showToast
   } = useAppData();
 
   const [isPushSupported, setIsPushSupported] = React.useState(false);
@@ -230,7 +231,19 @@ export default function App() {
           )}
 
           {activeTab === 'courses' && (
-            <CoursesTab courses={mr30Courses} onCourseAdded={loadAllData} showToast={showToast} />
+            isDegreeLoading ? (
+              <div className="flex h-64 items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              </div>
+            ) : (
+              <CoursesTab 
+                courses={mr30Courses} 
+                onCourseAdded={loadAllData} 
+                showToast={showToast}
+                addCourseToPlanner={addCourseToPlanner}
+                selectedCourses={selectedCourses}
+              />
+            )
           )}
 
           {activeTab === 'planner' && (
