@@ -1,7 +1,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import db from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
@@ -19,9 +19,13 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = db.prepare("SELECT * FROM users WHERE email = ?").get(credentials.email) as any;
+        const { data: user, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("email", credentials.email)
+          .single();
 
-        if (!user || !user.password) return null;
+        if (error || !user || !user.password) return null;
 
         const isPasswordCorrect = await bcrypt.compare(credentials.password, user.password);
 
@@ -41,11 +45,19 @@ export const authOptions: NextAuthOptions = {
       if (account.provider === "google") {
         if (!user.email) return false;
         try {
-          const existingUser = db.prepare("SELECT * FROM users WHERE email = ?").get(user.email);
+          const { data: existingUser } = await supabase
+            .from("users")
+            .select("*")
+            .eq("email", user.email)
+            .single();
+
           if (!existingUser) {
-            db.prepare("INSERT INTO users (id, name, email, image) VALUES (?, ?, ?, ?)").run(
-              user.id, user.name, user.email, user.image
-            );
+            await supabase.from("users").insert({
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              image: user.image
+            });
           }
           return true;
         } catch (error) {
@@ -57,7 +69,12 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }: any) {
       if (session.user) {
-        const dbUser = db.prepare("SELECT id FROM users WHERE email = ?").get(session.user.email) as { id: string } | undefined;
+        const { data: dbUser } = await supabase
+          .from("users")
+          .select("id")
+          .eq("email", session.user.email)
+          .single();
+          
         session.user.id = dbUser?.id || token.sub;
       }
       return session;

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -12,14 +12,14 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { id, name, required } = body;
     
-    // Use UPSERT instead of REPLACE to avoid triggering ON DELETE CASCADE
-    db.prepare(`
-      INSERT INTO degree_categories (user_id, id, name, required) 
-      VALUES (?, ?, ?, ?) 
-      ON CONFLICT(user_id, id) DO UPDATE SET 
-        name = excluded.name, 
-        required = excluded.required
-    `).run(userId, id, name, required);
+    const { error } = await supabase.from('degree_categories').upsert({
+      user_id: userId,
+      id: String(id),
+      name,
+      required: required || 0
+    });
+    
+    if (error) throw error;
     
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -39,27 +39,15 @@ export async function DELETE(request: Request) {
     
     console.log('[API DELETE] Processing deletion for ID:', id);
     
-    let changes = 0;
+    // 1. Clear courses first (manual cascade since we don't assume foreign key setup in JS client easily)
+    await supabase.from('degree_courses').delete().eq('category_id', id).eq('user_id', userId);
     
-    // Run in a block to ensure we try both string and numeric if needed
-    const performDelete = (targetId: string | number) => {
-      // 1. Clear courses first (manual cascade)
-      db.prepare('DELETE FROM degree_courses WHERE category_id = ? AND user_id = ?').run(targetId, userId);
-      // 2. Delete the category
-      const result = db.prepare('DELETE FROM degree_categories WHERE id = ? AND user_id = ?').run(targetId, userId);
-      return result.changes;
-    };
-
-    changes = performDelete(id);
+    // 2. Delete the category
+    const { error } = await supabase.from('degree_categories').delete().eq('id', id).eq('user_id', userId);
     
-    // If no rows deleted and ID is numeric string, try numeric type
-    if (changes === 0 && /^\d+$/.test(id)) {
-      console.log('[API DELETE] Retrying with numeric cast for:', id);
-      changes = performDelete(Number(id));
-    }
+    if (error) throw error;
 
-    console.log(`[API DELETE] Deletion completed. Rows affected: ${changes}`);
-    return NextResponse.json({ success: true, changes });
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('[API DELETE] Critical Error:', error);
     return NextResponse.json({ error: 'Failed to delete category', details: error.message }, { status: 500 });

@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { DegreeCategory, CompletedCourse } from '@/types';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
@@ -10,24 +10,31 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
 
-    const majorRow = db.prepare("SELECT value FROM settings WHERE key = 'major' AND user_id = ?").get(userId) as { value: string } | undefined;
-    const major = majorRow?.value || 'ยังไม่ได้ระบุชื่อหลักสูตร';
+    const [majorRes, totalCreditsRes, categoriesRes, completedRes] = await Promise.all([
+      supabase.from('settings').select('value').eq('user_id', userId).eq('key', 'major').single(),
+      supabase.from('settings').select('value').eq('user_id', userId).eq('key', 'totalCredits').single(),
+      supabase.from('degree_categories').select('*').eq('user_id', userId),
+      supabase.from('completed_courses').select('course_code, grade').eq('user_id', userId)
+    ]);
 
-    const totalCreditsRow = db.prepare("SELECT value FROM settings WHERE key = 'totalCredits' AND user_id = ?").get(userId) as { value: string } | undefined;
-    const totalCredits = parseInt(totalCreditsRow?.value || "0") || 0;
-    
-    const categories = db.prepare('SELECT * FROM degree_categories WHERE user_id = ?').all(userId) as (Omit<DegreeCategory, 'courses'> & { id: number | string })[];
-    
-    const categoriesWithCourses = categories.map((cat) => {
-      const courses = db.prepare('SELECT course_code FROM degree_courses WHERE category_id = ? AND user_id = ?').all(cat.id, userId) as { course_code: string }[];
+    const major = majorRes.data?.value || 'ยังไม่ได้ระบุชื่อหลักสูตร';
+    const totalCredits = parseInt(totalCreditsRes.data?.value || "0") || 0;
+    const categories = categoriesRes.data || [];
+    const completedCourses = completedRes.data || [] as CompletedCourse[];
+
+    const categoriesWithCourses = await Promise.all(categories.map(async (cat) => {
+      const { data: courses } = await supabase
+        .from('degree_courses')
+        .select('course_code')
+        .eq('category_id', cat.id)
+        .eq('user_id', userId);
+        
       return {
         ...cat,
         id: String(cat.id),
-        courses: courses.map((c) => c.course_code)
+        courses: courses?.map((c) => c.course_code) || []
       };
-    });
-
-    const completedCourses = db.prepare('SELECT course_code, grade FROM completed_courses WHERE user_id = ?').all(userId) as CompletedCourse[];
+    }));
 
     return NextResponse.json({
       major,
@@ -49,51 +56,46 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { major, totalCredits, categories } = body;
 
-    db.transaction(() => {
-      // 1. Update Settings
-      if (major !== undefined) {
-        db.prepare("INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, 'major', ?)").run(userId, major);
-      }
-      if (totalCredits !== undefined) {
-        db.prepare("INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, 'totalCredits', ?)").run(userId, String(totalCredits));
-      }
+    // 1. Update Settings
+    if (major !== undefined) {
+      await supabase.from('settings').upsert({ user_id: userId, key: 'major', value: major });
+    }
+    if (totalCredits !== undefined) {
+      await supabase.from('settings').upsert({ user_id: userId, key: 'totalCredits', value: String(totalCredits) });
+    }
 
-      // 2. Sync Categories if provided
-      if (Array.isArray(categories)) {
-        console.log('[API PUT] Syncing categories. New count:', categories.length);
+    // 2. Sync Categories if provided
+    if (Array.isArray(categories)) {
+      console.log('[API PUT] Syncing categories. New count:', categories.length);
+      
+      const { data: existingCats } = await supabase
+        .from('degree_categories')
+        .select('id')
+        .eq('user_id', userId);
         
-        // Identify IDs currently in DB
-        const existingCats = db.prepare('SELECT id FROM degree_categories WHERE user_id = ?').all(userId) as { id: string }[];
-        const existingIds = existingCats.map(c => String(c.id));
-        const newIds = categories.map(c => String(c.id));
+      const existingIds = existingCats?.map(c => String(c.id)) || [];
+      const newIds = categories.map(c => String(c.id));
 
-        // Delete categories removed from the list
-        const toDelete = existingIds.filter(id => !newIds.includes(id));
-        if (toDelete.length > 0) {
-          console.log('[API PUT] Deleting orphaned categories:', toDelete);
-          const deleteCourses = db.prepare('DELETE FROM degree_courses WHERE category_id = ? AND user_id = ?');
-          const deleteCat = db.prepare('DELETE FROM degree_categories WHERE id = ? AND user_id = ?');
-          
-          for (const id of toDelete) {
-            deleteCourses.run(id, userId);
-            deleteCat.run(id, userId);
-          }
-        }
-
-        // Upsert categories in the list
-        const upsertStmt = db.prepare(`
-          INSERT INTO degree_categories (user_id, id, name, required) 
-          VALUES (?, ?, ?, ?) 
-          ON CONFLICT(user_id, id) DO UPDATE SET 
-            name = excluded.name, 
-            required = excluded.required
-        `);
-        
-        for (const cat of categories) {
-          upsertStmt.run(userId, cat.id, cat.name, cat.required);
-        }
+      // Delete categories removed from the list
+      const toDelete = existingIds.filter(id => !newIds.includes(id));
+      if (toDelete.length > 0) {
+        console.log('[API PUT] Deleting orphaned categories:', toDelete);
+        await supabase.from('degree_courses').delete().in('category_id', toDelete).eq('user_id', userId);
+        await supabase.from('degree_categories').delete().in('id', toDelete).eq('user_id', userId);
       }
-    })();
+
+      // Upsert categories in the list
+      if (categories.length > 0) {
+        const upsertData = categories.map(cat => ({
+          user_id: userId,
+          id: String(cat.id),
+          name: cat.name,
+          required: cat.required
+        }));
+        
+        await supabase.from('degree_categories').upsert(upsertData);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

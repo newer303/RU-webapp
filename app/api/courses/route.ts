@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    const courses = db.prepare('SELECT * FROM courses').all();
+    const { data: courses, error } = await supabase.from('courses').select('*');
+    if (error) throw error;
     return NextResponse.json(courses);
   } catch (error) {
     console.error(error);
@@ -21,10 +22,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Code and Name are required' }, { status: 400 });
     }
 
-    db.prepare(`
-      INSERT OR REPLACE INTO courses (code, name, credit, day, time, room, examDate, examTime)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(code, name, credit || 3, day || '', time || '', room || '', examDate || '', examTime || '');
+    const { error } = await supabase.from('courses').upsert({
+      code,
+      name,
+      credit: credit || 3,
+      day: day || '',
+      time: time || '',
+      room: room || '',
+      examDate: examDate || '',
+      examTime: examTime || ''
+    });
+
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -42,7 +51,9 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Course code is required' }, { status: 400 });
     }
 
-    db.prepare('DELETE FROM courses WHERE code = ?').run(code);
+    const { error } = await supabase.from('courses').delete().eq('code', code);
+    if (error) throw error;
+    
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);

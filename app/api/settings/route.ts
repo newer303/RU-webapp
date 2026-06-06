@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -9,8 +9,14 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
 
-    const settings = db.prepare('SELECT * FROM settings WHERE user_id = ?').all(userId) as { key: string, value: string }[];
-    const settingsMap = settings.reduce((acc, curr) => {
+    const { data: settings, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    const settingsMap = (settings || []).reduce((acc, curr) => {
       acc[curr.key] = curr.value;
       return acc;
     }, {} as Record<string, string>);
@@ -28,7 +34,15 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { key, value } = body;
-    db.prepare('INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, ?, ?)').run(userId, key, value.toString());
+    
+    const { error } = await supabase.from('settings').upsert({
+      user_id: userId,
+      key,
+      value: value.toString()
+    });
+
+    if (error) throw error;
+    
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);

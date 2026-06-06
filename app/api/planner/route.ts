@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -9,12 +9,19 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
 
-    const plannerCourses = db.prepare(`
-      SELECT c.* FROM courses c
-      JOIN planner_courses pc ON c.code = pc.course_code
-      WHERE pc.user_id = ?
-    `).all(userId);
-    return NextResponse.json(plannerCourses);
+    const { data: plannerCourses, error } = await supabase
+      .from('planner_courses')
+      .select(`
+        courses (*)
+      `)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+    
+    // Flatten the join result
+    const flattened = plannerCourses?.map((pc: any) => pc.courses).filter(Boolean) || [];
+    
+    return NextResponse.json(flattened);
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Failed to fetch planner courses' }, { status: 500 });
@@ -28,7 +35,10 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { courseCode } = body;
-    db.prepare('INSERT OR IGNORE INTO planner_courses (user_id, course_code) VALUES (?, ?)').run(userId, courseCode);
+    
+    const { error } = await supabase.from('planner_courses').upsert({ user_id: userId, course_code: courseCode }, { onConflict: 'user_id, course_code', ignoreDuplicates: true });
+    if (error) throw error;
+    
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);
@@ -46,7 +56,14 @@ export async function DELETE(request: Request) {
     if (!courseCode) {
       return NextResponse.json({ error: 'Course code is required' }, { status: 400 });
     }
-    db.prepare('DELETE FROM planner_courses WHERE course_code = ? AND user_id = ?').run(courseCode, userId);
+    
+    const { error } = await supabase
+      .from('planner_courses')
+      .delete()
+      .eq('course_code', courseCode)
+      .eq('user_id', userId);
+
+    if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);

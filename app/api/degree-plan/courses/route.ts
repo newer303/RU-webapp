@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -13,9 +13,11 @@ export async function POST(request: Request) {
     const { categoryId, courseCode } = body;
     
     // Ensure course exists in courses table (shared)
-    db.prepare('INSERT OR IGNORE INTO courses (code, name, credit) VALUES (?, ?, ?)').run(courseCode, 'ไม่ระบุชื่อวิชา', 3);
+    await supabase.from('courses').upsert({ code: courseCode, name: 'ไม่ระบุชื่อวิชา', credit: 3 }, { onConflict: 'code', ignoreDuplicates: true });
     
-    db.prepare('INSERT INTO degree_courses (user_id, category_id, course_code) VALUES (?, ?, ?)').run(userId, categoryId, courseCode);
+    const { error } = await supabase.from('degree_courses').insert({ user_id: userId, category_id: categoryId, course_code: courseCode });
+    if (error) throw error;
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);
@@ -34,7 +36,14 @@ export async function DELETE(request: Request) {
     
     if (!categoryId || !courseCode) return NextResponse.json({ error: 'categoryId and courseCode are required' }, { status: 400 });
     
-    db.prepare('DELETE FROM degree_courses WHERE category_id = ? AND course_code = ? AND user_id = ?').run(categoryId, courseCode, userId);
+    const { error } = await supabase
+      .from('degree_courses')
+      .delete()
+      .eq('category_id', categoryId)
+      .eq('course_code', courseCode)
+      .eq('user_id', userId);
+
+    if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);

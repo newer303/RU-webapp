@@ -1,13 +1,24 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id || 'global';
+
     const body = await request.json();
     const { message } = body;
 
     // Get LINE Token from settings
-    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get('lineToken') as { value: string } | undefined;
+    const { data: setting } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('user_id', userId)
+      .eq('key', 'lineToken')
+      .single();
+      
     const token = setting?.value;
 
     if (!token) {
@@ -24,8 +35,9 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to send notification');
+      // Line Notify might not return JSON on all errors
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to send notification');
     }
 
     return NextResponse.json({ success: true });

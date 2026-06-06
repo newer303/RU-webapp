@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -9,7 +9,12 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
     
-    const events = db.prepare('SELECT * FROM events WHERE user_id = ?').all(userId);
+    const { data: events, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('user_id', userId);
+      
+    if (error) throw error;
     return NextResponse.json(events);
   } catch (error) {
     console.error(error);
@@ -25,12 +30,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { title, startDate, endDate, type, region, dateStr, sendNotify } = body;
 
-    const info = db.prepare(
-      'INSERT INTO events (user_id, title, startDate, endDate, type, region, dateStr) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(userId, title, startDate, endDate, type, region, dateStr);
+    const { data, error } = await supabase
+      .from('events')
+      .insert({ user_id: userId, title, startDate, endDate, type, region, dateStr, sendNotify })
+      .select('id')
+      .single();
+
+    if (error) throw error;
 
     if (sendNotify) {
-      // Trigger internal notify API
       const baseUrl = new URL(request.url).origin;
       await fetch(`${baseUrl}/api/notify`, {
         method: 'POST',
@@ -39,7 +47,7 @@ export async function POST(request: Request) {
       }).catch(err => console.error('Failed to send auto notification:', err));
     }
 
-    return NextResponse.json({ id: info.lastInsertRowid });
+    return NextResponse.json({ id: data.id });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Failed to create event' }, { status: 500 });
@@ -54,9 +62,13 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { id, title, startDate, endDate, type, region, dateStr, sendNotify } = body;
 
-    db.prepare(
-      'UPDATE events SET title = ?, startDate = ?, endDate = ?, type = ?, region = ?, dateStr = ? WHERE id = ? AND user_id = ?'
-    ).run(title, startDate, endDate, type, region, dateStr, id, userId);
+    const { error } = await supabase
+      .from('events')
+      .update({ title, startDate, endDate, type, region, dateStr, sendNotify })
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (error) throw error;
 
     if (sendNotify) {
       const baseUrl = new URL(request.url).origin;
@@ -86,7 +98,13 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    db.prepare('DELETE FROM events WHERE id = ? AND user_id = ?').run(id, userId);
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -12,7 +12,12 @@ export async function POST(request: Request) {
     }
 
     // Check if user exists
-    const existingUser = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
     if (existingUser) {
       return NextResponse.json({ error: 'User already exists with this email' }, { status: 400 });
     }
@@ -22,9 +27,14 @@ export async function POST(request: Request) {
     const userId = uuidv4();
 
     // Insert user
-    db.prepare('INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)').run(
-      userId, name, email, hashedPassword
-    );
+    const { error } = await supabase.from('users').insert({
+      id: userId,
+      name,
+      email,
+      password: hashedPassword
+    });
+
+    if (error) throw error;
 
     return NextResponse.json({ success: true, message: 'User registered successfully' });
   } catch (error: any) {

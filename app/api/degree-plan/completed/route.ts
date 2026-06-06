@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
@@ -13,13 +13,15 @@ export async function POST(request: Request) {
     
     // Batch Mode
     if (body.courses && Array.isArray(body.courses)) {
-      const insert = db.prepare('INSERT OR REPLACE INTO completed_courses (user_id, course_code, grade) VALUES (?, ?, ?)');
-      const transaction = db.transaction((courses) => {
-        for (const c of courses) {
-          insert.run(userId, c.code, c.grade || null);
-        }
-      });
-      transaction(body.courses);
+      const upsertData = body.courses.map((c: any) => ({
+        user_id: userId,
+        course_code: c.code,
+        grade: c.grade || null
+      }));
+      
+      const { error } = await supabase.from('completed_courses').upsert(upsertData);
+      if (error) throw error;
+      
       return NextResponse.json({ success: true, count: body.courses.length });
     }
 
@@ -27,9 +29,19 @@ export async function POST(request: Request) {
     const { courseCode, completed, grade } = body;
     
     if (completed) {
-      db.prepare('INSERT OR REPLACE INTO completed_courses (user_id, course_code, grade) VALUES (?, ?, ?)').run(userId, courseCode, grade || null);
+      const { error } = await supabase.from('completed_courses').upsert({
+        user_id: userId,
+        course_code: courseCode,
+        grade: grade || null
+      });
+      if (error) throw error;
     } else {
-      db.prepare('DELETE FROM completed_courses WHERE course_code = ? AND user_id = ?').run(courseCode, userId);
+      const { error } = await supabase
+        .from('completed_courses')
+        .delete()
+        .eq('course_code', courseCode)
+        .eq('user_id', userId);
+      if (error) throw error;
     }
     
     return NextResponse.json({ success: true });
