@@ -1,0 +1,521 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  CalendarEvent, Course, DegreePlan, DegreeCategory,
+  Status, EventFormData, PlannerCourse, CompletedCourse
+} from '@/types';
+import { getEventStatus, formatThaiDateRange, calculateGPAX } from '@/lib/utils';
+
+export function useAppData() {
+  const [activeTab, setActiveTab] = useState('home');
+
+  // Persistence for activeTab
+  useEffect(() => {
+    const savedTab = localStorage.getItem('activeTab');
+    if (savedTab) setActiveTab(savedTab);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
+
+  // Calendar State
+  const [filterRegion, setFilterRegion] = useState('all');
+  const [filterType, setFilterType] = useState('all');
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [toastMessage, setToastMessage] = useState('');
+  const [eventFormData, setEventFormData] = useState<EventFormData>({
+    id: null,
+    title: '',
+    startDate: '',
+    endDate: '',
+    type: 'lecture',
+    region: 'all',
+    sendNotify: false
+  });
+
+  // Planner State
+  const [selectedCourses, setSelectedCourses] = useState<PlannerCourse[]>([]);
+  const [mr30Courses, setMr30Courses] = useState<Course[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [plannerError, setPlannerError] = useState('');
+  const [isManualCourseModalOpen, setIsManualCourseModalOpen] = useState(false);
+  const [manualCourseData, setManualCourseData] = useState<Course>({
+    code: '',
+    name: '',
+    credit: 3,
+    day: 'จันทร์',
+    time: '09:30 - 11:20',
+    room: '',
+    examDate: '',
+    examTime: 'เช้า (09:30-12:00)'
+  });
+
+  // Degree Plan State
+  const [isDegreeEditMode, setIsDegreeEditMode] = useState(false);
+  const [degreePlan, setDegreePlan] = useState<DegreePlan>({ major: 'กำลังโหลด...', totalCredits: 0, categories: [], completedCourses: [] });
+  const [isDegreeLoading, setIsDegreeLoading] = useState(true);
+  const [completedCourses, setCompletedCourses] = useState<CompletedCourse[]>([]);
+  const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [targetCategoryId, setTargetCategoryId] = useState<string | null>(null);
+  const [courseSearchQuery, setCourseSearchQuery] = useState('');
+
+  // Notifications State
+  const [notifyLine, setNotifyLine] = useState(true);
+  const [notifyEmail, setNotifyEmail] = useState(false);
+  const [lineToken, setLineToken] = useState('');
+
+  // --- Utility ---
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 4000);
+  }, []);
+
+  // --- Data Fetching ---
+  const loadAllData = useCallback(async () => {
+    setIsDegreeLoading(true);
+    try {
+      const [calRes, coursesRes, plannerRes, settingsRes, degreeRes] = await Promise.all([
+        fetch('/api/calendar', { cache: 'no-store' }),
+        fetch('/api/courses', { cache: 'no-store' }),
+        fetch('/api/planner', { cache: 'no-store' }),
+        fetch('/api/settings', { cache: 'no-store' }),
+        fetch('/api/degree-plan', { cache: 'no-store' })
+      ]);
+
+      if (!calRes.ok || !coursesRes.ok || !plannerRes.ok || !settingsRes.ok || !degreeRes.ok) {
+        throw new Error('One or more data fetches failed');
+      }
+
+      const [calData, coursesData, plannerData, settingsData, degreeData] = await Promise.all([
+        calRes.json(),
+        coursesRes.json(),
+        plannerRes.json(),
+        settingsRes.json(),
+        degreeRes.json()
+      ]);
+
+      setCalendarEvents(calData);
+      setMr30Courses(coursesData);
+      setSelectedCourses(plannerData);
+
+      if (settingsData.notifyLine !== undefined) setNotifyLine(settingsData.notifyLine === 'true');
+      if (settingsData.notifyEmail !== undefined) setNotifyEmail(settingsData.notifyEmail === 'true');
+      if (settingsData.lineToken !== undefined) setLineToken(settingsData.lineToken);
+
+      const plan = {
+        major: degreeData.major || 'ยังไม่ได้ระบุชื่อหลักสูตร',
+        totalCredits: degreeData.totalCredits || 0,
+        categories: Array.isArray(degreeData.categories) ? degreeData.categories : [],
+        completedCourses: Array.isArray(degreeData.completedCourses) ? degreeData.completedCourses : []
+      };
+      setDegreePlan(plan);
+      setCompletedCourses(plan.completedCourses);
+    } catch (err) {
+      console.error('Error loading all data:', err);
+      showToast('ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsDegreeLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+
+  const updateSetting = async (key: string, value: string | boolean) => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      });
+      if (!res.ok) throw new Error('Failed to update settings');
+      await loadAllData();
+    } catch (err) {
+      console.error(err);
+      showToast('ไม่สามารถบันทึกการตั้งค่าได้');
+    }
+  };
+
+  // --- Calendar Logic ---
+  const filteredCalendar = useMemo(() => {
+    return calendarEvents.filter(item => {
+      const matchRegion = filterRegion === 'all' || item.region === filterRegion || item.region === 'all';
+      const matchType = filterType === 'all' || item.type === filterType;
+      return matchRegion && matchType;
+    }).sort((a, b) => {
+      const statusA = getEventStatus(a.startDate, a.endDate);
+      const statusB = getEventStatus(b.startDate, b.endDate);
+
+      const getPriority = (status: Status) => {
+        if (status.label === 'กำลังดำเนินการ') return 0;
+        if (status.label === 'เร็วๆ นี้') return 1;
+        return 2;
+      };
+
+      return getPriority(statusA) - getPriority(statusB);
+    });
+  }, [calendarEvents, filterRegion, filterType]);
+
+  const handleOpenEventModal = (event: CalendarEvent | null = null) => {
+    if (event) {
+      setEventFormData({ ...event, sendNotify: event.sendNotify ?? false });
+    } else {
+      const todayStr = new Date().toISOString().split('T')[0];
+      setEventFormData({ id: null, title: '', startDate: todayStr, endDate: todayStr, type: 'lecture', region: 'all', sendNotify: true });
+    }
+    setIsEventModalOpen(true);
+  };
+
+  const handleSaveEvent = async () => {
+    if (!eventFormData.title || !eventFormData.startDate || !eventFormData.endDate) {
+      showToast('กรุณากรอกข้อมูลให้ครบถ้วน (ชื่อ, วันเริ่มต้น, วันสิ้นสุด)');
+      return;
+    }
+
+    const dateStr = formatThaiDateRange(eventFormData.startDate, eventFormData.endDate);
+
+    const eventData = {
+      id: eventFormData.id,
+      title: eventFormData.title,
+      startDate: eventFormData.startDate,
+      endDate: eventFormData.endDate,
+      type: eventFormData.type,
+      region: eventFormData.region,
+      dateStr,
+      sendNotify: eventFormData.sendNotify,
+    };
+
+    try {
+      let res;
+      if (eventFormData.id) {
+        res = await fetch('/api/calendar', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(eventData),
+        });
+      } else {
+        res = await fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(eventData),
+        });
+      }
+
+      if (!res.ok) throw new Error('Failed to save event');
+
+      await loadAllData();
+      setIsEventModalOpen(false);
+      showToast(eventFormData.id ? `อัปเดต "${eventFormData.title}" เรียบร้อยแล้ว` : `เพิ่ม "${eventFormData.title}" เรียบร้อยแล้ว`);
+    } catch (error) {
+      console.error(error);
+      showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (confirmDeleteId) {
+      try {
+        const res = await fetch(`/api/calendar?id=${confirmDeleteId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete event');
+        await loadAllData();
+        setConfirmDeleteId(null);
+        showToast('ลบกำหนดการเรียบร้อยแล้ว');
+      } catch (error) {
+        console.error(error);
+        showToast('เกิดข้อผิดพลาดในการลบข้อมูล');
+      }
+    }
+  };
+
+  // --- Planner Logic ---
+  const searchResults = useMemo(() => {
+    return searchQuery.length >= 2
+      ? mr30Courses.filter(c => c.code.toLowerCase().includes(searchQuery.toLowerCase()) || c.name.includes(searchQuery))
+      : [];
+  }, [searchQuery, mr30Courses]);
+
+  const addCourseToPlanner = async (course: Course) => {
+    setPlannerError('');
+    if (selectedCourses.some(c => c.code === course.code)) {
+      setPlannerError(`วิชา ${course.code} อยู่ในตารางแล้ว`);
+      return;
+    }
+    const examConflict = selectedCourses.find(
+      c => c.examDate === course.examDate && c.examTime === course.examTime
+    );
+    if (examConflict) {
+      setPlannerError(`ชนกับ ${examConflict.code}! วันและเวลาสอบตรงกัน`);
+      return;
+    }
+    try {
+      const res = await fetch('/api/planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseCode: course.code }),
+      });
+      if (!res.ok) throw new Error('Add failed');
+      await loadAllData();
+      setSearchQuery('');
+    } catch (err) {
+      setPlannerError('เพิ่มวิชาไม่สำเร็จ');
+    }
+  };
+
+  const removeCourseFromPlanner = async (code: string) => {
+    try {
+      const res = await fetch(`/api/planner?courseCode=${code}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Remove failed');
+      await loadAllData();
+    } catch (err) {
+      showToast('ลบวิชาไม่สำเร็จ');
+    }
+  };
+
+  const handleSaveManualCourse = async () => {
+    if (!manualCourseData.code || !manualCourseData.name) {
+      showToast('กรุณากรอกรหัสวิชาและชื่อวิชา');
+      return;
+    }
+
+    try {
+      // 1. Save to courses table
+      const resCourse = await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(manualCourseData),
+      });
+      if (!resCourse.ok) throw new Error('Failed to save course details');
+
+      // 2. Add to planner
+      const resPlanner = await fetch('/api/planner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseCode: manualCourseData.code }),
+      });
+      if (!resPlanner.ok) throw new Error('Failed to add to planner');
+
+      await loadAllData();
+      setIsManualCourseModalOpen(false);
+      showToast(`เพิ่มวิชา ${manualCourseData.code} เข้าตารางแล้ว`);
+      
+      // Reset form
+      setManualCourseData({
+        code: '', name: '', credit: 3, day: 'จันทร์', time: '09:30 - 11:20',
+        room: '', examDate: '', examTime: 'เช้า (09:30-12:00)'
+      });
+    } catch (err) {
+      console.error(err);
+      showToast('เกิดข้อผิดพลาดในการเพิ่มวิชา');
+    }
+  };
+
+  // --- Degree Plan Logic ---
+  const totalCompletedCredits = useMemo(() => {
+    return completedCourses.reduce((sum, completed) => {
+      if (!completed.course_code || completed.course_code === 'TEST') return sum;
+      const course = mr30Courses.find(c => c.code === completed.course_code);
+      return sum + (course?.credit || 0);
+    }, 0);
+  }, [completedCourses, mr30Courses]);
+
+  const toggleCourseCompletion = async (courseCode: string) => {
+    if (isDegreeEditMode) return;
+    const existing = completedCourses.find(c => c.course_code === courseCode);
+    const isCompleted = !!existing;
+
+    try {
+      const res = await fetch('/api/degree-plan/completed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          courseCode, 
+          completed: !isCompleted,
+          grade: !isCompleted ? 'A' : null 
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to update course completion');
+      await loadAllData();
+    } catch (error) {
+      console.error(error);
+      showToast('ไม่สามารถบันทึกสถานะวิชาได้');
+    }
+  };
+
+  const updateCourseGrade = async (courseCode: string, grade: string) => {
+    try {
+      const res = await fetch('/api/degree-plan/completed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseCode, completed: true, grade }),
+      });
+      if (!res.ok) throw new Error('Failed to update grade');
+      await loadAllData();
+    } catch (error) {
+      console.error(error);
+      showToast('ไม่สามารถบันทึกเกรดได้');
+    }
+  };
+
+  const handleSaveDegreeSettings = async (major: string, totalCredits: number, categories: DegreeCategory[]) => {
+    try {
+      showToast('กำลังบันทึกข้อมูล...');
+      const res = await fetch('/api/degree-plan', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ major, totalCredits, categories }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.details || errorData.error || 'Failed to update degree settings');
+      }
+
+      await loadAllData();
+      showToast('บันทึกข้อมูลหลักสูตรเรียบร้อยแล้ว');
+      setIsDegreeEditMode(false);
+    } catch (error: any) {
+      console.error(error);
+      showToast(`เกิดข้อผิดพลาด: ${error.message}`);
+    }
+  };
+
+  const handleAddCategory = () => {
+    setIsAddCategoryModalOpen(true);
+  };
+
+  const closeAddCategoryModal = () => {
+    setIsAddCategoryModalOpen(false);
+    setNewCategoryName('');
+  };
+
+  const confirmAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    const id = Date.now().toString();
+    try {
+      const res = await fetch('/api/degree-plan/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name, required: 0 }),
+      });
+      if (!res.ok) throw new Error('Failed to add category');
+      await loadAllData();
+      closeAddCategoryModal();
+    } catch (error) {
+      console.error(error);
+      showToast('ไม่สามารถเพิ่มหมวดวิชาได้');
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      showToast('กำลังลบหมวดหมู่...');
+      const res = await fetch(`/api/degree-plan/categories?id=${id}`, { method: 'DELETE' });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.details || errorData.error || 'Failed to delete category');
+      }
+
+      await loadAllData();
+      showToast('ลบหมวดหมู่เรียบร้อยแล้ว');
+    } catch (error: any) {
+      console.error('[handleDeleteCategory] Error:', error);
+      showToast(`ไม่สามารถลบหมวดวิชาได้: ${error.message}`);
+      await loadAllData();
+    }
+  };
+
+  const handleAddCourse = (catId: string) => {
+    setTargetCategoryId(catId);
+    setCourseSearchQuery('');
+    setIsAddCourseModalOpen(true);
+  };
+
+  const confirmAddCourseToCategory = async (courseCode: string) => {
+    if (targetCategoryId) {
+      const category = degreePlan.categories.find(c => c.id === targetCategoryId);
+      if (category?.courses.includes(courseCode)) {
+        showToast(`วิชา ${courseCode} มีอยู่ในหมวดนี้แล้ว`);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/degree-plan/courses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryId: targetCategoryId, courseCode }),
+        });
+        if (!res.ok) throw new Error('Failed to add course to category');
+        await loadAllData();
+        setIsAddCourseModalOpen(false);
+        showToast(`เพิ่มวิชา  ${courseCode} เรียบร้อยแล้ว`);
+      } catch (error) {
+        console.error(error);
+        showToast('ไม่สามารถเพิ่มวิชาได้');
+      }
+    }
+  };
+
+  const degreeSearchResults = useMemo(() => {
+    if (courseSearchQuery.length < 2) return [];
+    return mr30Courses.filter(c =>
+      c.code.toLowerCase().includes(courseSearchQuery.toLowerCase()) ||
+      c.name.includes(courseSearchQuery)
+    );
+  }, [courseSearchQuery, mr30Courses]);
+
+  const handleDeleteCourse = async (catId: string, courseCode: string) => {
+    try {
+      const res = await fetch(`/api/degree-plan/courses?categoryId=${catId}&courseCode=${courseCode}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete course');
+      await loadAllData();
+    } catch (error) {
+      console.error(error);
+      showToast('ไม่สามารถลบวิชาได้');
+    }
+  };
+
+  const gpax = useMemo(() => {
+    return calculateGPAX(completedCourses, mr30Courses);
+  }, [completedCourses, mr30Courses]);
+
+  return {
+    activeTab, setActiveTab,
+    filterRegion, setFilterRegion,
+    filterType, setFilterType,
+    calendarEvents, filteredCalendar,
+    isEventModalOpen, setIsEventModalOpen,
+    confirmDeleteId, setConfirmDeleteId,
+    toastMessage, showToast,
+    eventFormData, setEventFormData,
+    selectedCourses, mr30Courses,
+    searchQuery, setSearchQuery,
+    plannerError, setPlannerError,
+    isManualCourseModalOpen, setIsManualCourseModalOpen,
+    manualCourseData, setManualCourseData,
+    isDegreeEditMode, setIsDegreeEditMode,
+    degreePlan, setDegreePlan,
+    isDegreeLoading,
+    completedCourses,
+    isAddCourseModalOpen, setIsAddCourseModalOpen,
+    isAddCategoryModalOpen, setIsAddCategoryModalOpen,
+    newCategoryName, setNewCategoryName,
+    courseSearchQuery, setCourseSearchQuery,
+    notifyLine, setNotifyLine,
+    notifyEmail, setNotifyEmail,
+    lineToken, setLineToken,
+    loadAllData, updateSetting,
+    handleOpenEventModal, handleSaveEvent, handleDeleteEvent,
+    searchResults, addCourseToPlanner, removeCourseFromPlanner, handleSaveManualCourse,
+    totalCompletedCredits, toggleCourseCompletion, updateCourseGrade, handleSaveDegreeSettings,
+    gpax,
+    handleAddCategory, closeAddCategoryModal, confirmAddCategory, handleDeleteCategory,
+    handleAddCourse, confirmAddCourseToCategory, degreeSearchResults, handleDeleteCourse
+  };
+}

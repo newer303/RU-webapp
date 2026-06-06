@@ -1,65 +1,287 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React from 'react';
+import { getCalendarIcon } from '@/lib/utils';
+import { NavButton } from '@/components/NavButton';
+import {
+  Calendar, BookMarked, Bell, LayoutDashboard, List, CalendarDays,
+  Smartphone, AlertCircle, CheckCircle
+} from 'lucide-react';
+import { CalendarTab } from '@/components/CalendarTab';
+import { PlannerTab } from '@/components/PlannerTab';
+import { DegreePlanTab } from '@/components/DegreePlanTab';
+import { CoursesTab } from '@/components/CoursesTab';
+import { DashboardTab } from '@/components/DashboardTab';
+
+// Hooks
+import { useAppData } from '@/hooks/useAppData';
+
+// Modals
+import { EventModal } from '@/components/modals/EventModal';
+import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
+import { AddCourseModal } from '@/components/modals/AddCourseModal';
+import { AddCategoryModal } from '@/components/modals/AddCategoryModal';
+import { ManualCourseModal } from '@/components/modals/ManualCourseModal';
+
+export default function App() {
+  const {
+    activeTab, setActiveTab,
+    filterRegion, setFilterRegion,
+    filterType, setFilterType,
+    calendarEvents, filteredCalendar,
+    isEventModalOpen, setIsEventModalOpen,
+    confirmDeleteId, setConfirmDeleteId,
+    toastMessage,
+    eventFormData, setEventFormData,
+    selectedCourses, mr30Courses,
+    searchQuery, setSearchQuery,
+    plannerError,
+    isManualCourseModalOpen, setIsManualCourseModalOpen,
+    manualCourseData, setManualCourseData,
+    isDegreeEditMode, setIsDegreeEditMode,
+    degreePlan,
+    isDegreeLoading,
+    completedCourses,
+    isAddCourseModalOpen, setIsAddCourseModalOpen,
+    isAddCategoryModalOpen, setIsAddCategoryModalOpen,
+    newCategoryName, setNewCategoryName,
+    courseSearchQuery, setCourseSearchQuery,
+    notifyLine,
+    notifyEmail,
+    lineToken,
+    loadAllData, updateSetting,
+    handleOpenEventModal, handleSaveEvent, handleDeleteEvent,
+    searchResults, addCourseToPlanner, removeCourseFromPlanner, handleSaveManualCourse,
+    totalCompletedCredits, toggleCourseCompletion, updateCourseGrade, handleSaveDegreeSettings,
+    gpax,
+    handleAddCategory, closeAddCategoryModal, confirmAddCategory, handleDeleteCategory,
+    handleAddCourse, confirmAddCourseToCategory, degreeSearchResults, handleDeleteCourse
+  } = useAppData();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-800">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 p-1.5 md:p-2 rounded-lg shadow-sm">
+              <BookMarked className="text-white" size={20} />
+            </div>
+            <div>
+              <h1 className="text-lg md:text-xl font-bold text-gray-900 leading-tight">RU Planner</h1>
+              <p className="hidden md:block text-xs text-gray-500">ระบบจัดการตารางเรียนและหลักสูตร ม.รามคำแหง</p>
+            </div>
+          </div>
+          <div className="md:hidden">
+            <Bell size={20} className="text-gray-400" />
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-4 md:py-8 flex flex-col md:flex-row gap-8">
+        <aside className="hidden md:block md:w-64 flex-shrink-0 sticky top-24 self-start">
+          <nav className="flex flex-col gap-2">
+            <NavButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<LayoutDashboard size={20} />} label="หน้าแรก" />
+            <NavButton active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={20} />} label="ปฏิทินการศึกษา" />
+            <NavButton active={activeTab === 'courses'} onClick={() => setActiveTab('courses')} icon={<BookMarked size={20} />} label="รวมรายวิชา" />
+            <NavButton active={activeTab === 'planner'} onClick={() => setActiveTab('planner')} icon={<CalendarDays size={20} />} label="จัดตารางเรียน" />
+            <NavButton active={activeTab === 'degree'} onClick={() => setActiveTab('degree')} icon={<List size={20} />} label="เช็คหลักสูตร" />
+            <NavButton active={activeTab === 'notify'} onClick={() => setActiveTab('notify')} icon={<Bell size={20} />} label="ตั้งค่าแจ้งเตือน" />
+          </nav>
+        </aside>
+
+        <section className="flex-1 min-w-0 pb-24 md:pb-0">
+          {activeTab === 'home' && (
+            <DashboardTab 
+              degreePlan={degreePlan}
+              selectedCourses={selectedCourses}
+              calendarEvents={calendarEvents}
+              totalCompletedCredits={totalCompletedCredits}
+              gpax={gpax}
+              onNavigate={setActiveTab}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          )}
+
+          {activeTab === 'calendar' && (
+            <CalendarTab
+              filterRegion={filterRegion}
+              setFilterRegion={setFilterRegion}
+              filterType={filterType}
+              setFilterType={setFilterType}
+              filteredCalendar={filteredCalendar}
+              handleOpenEventModal={handleOpenEventModal}
+              setConfirmDeleteId={setConfirmDeleteId}
+              getCalendarIcon={getCalendarIcon}
+            />
+          )}
+
+          {activeTab === 'courses' && (
+            <CoursesTab courses={mr30Courses} onCourseAdded={loadAllData} />
+          )}
+
+          {activeTab === 'planner' && (
+            <PlannerTab
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              searchResults={searchResults}
+              addCourseToPlanner={addCourseToPlanner}
+              plannerError={plannerError}
+              selectedCourses={selectedCourses}
+              removeCourseFromPlanner={removeCourseFromPlanner}
+              openManualCourseModal={() => setIsManualCourseModalOpen(true)}
+              calendarEvents={calendarEvents}
+            />
+          )}
+
+          {activeTab === 'degree' && (
+            <DegreePlanTab
+              degreePlan={degreePlan}
+              isDegreeEditMode={isDegreeEditMode}
+              setIsDegreeEditMode={setIsDegreeEditMode}
+              completedCourses={completedCourses}
+              totalCompletedCredits={totalCompletedCredits}
+              toggleCourseCompletion={toggleCourseCompletion}
+              updateCourseGrade={updateCourseGrade}
+              handleDeleteCategory={handleDeleteCategory}
+              handleAddCourse={handleAddCourse}
+              handleDeleteCourse={handleDeleteCourse}
+              handleAddCategory={handleAddCategory}
+              mr30Courses={mr30Courses}
+              handleSaveDegreeSettings={handleSaveDegreeSettings}
+              isDegreeLoading={isDegreeLoading}
+            />
+          )}
+
+          {activeTab === 'notify' && (
+            <div className="animate-fade-in max-w-xl mx-auto md:mx-0">
+              <div className="mb-8">
+                <h2 className="text-xl md:text-2xl font-bold mb-1 text-gray-800 flex items-center gap-2">
+                  <Bell className="text-blue-600" size={24} /> ตั้งค่าแจ้งเตือน
+                </h2>
+                <p className="text-gray-500 text-sm">รับการแจ้งเตือนวันสอบและวันสำคัญ</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-start gap-5">
+                  <div className="bg-[#00B900] p-3 rounded-xl shadow-lg shadow-green-50">
+                    <Smartphone className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="font-bold text-gray-900 mb-0.5">LINE แจ้งเตือน</h3>
+                        <p className="text-[13px] text-gray-400">รับข้อความแจ้งเตือนผ่าน LINE Notify</p>
+                      </div>
+                      <button
+                        onClick={() => updateSetting('notifyLine', !notifyLine)}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 ${notifyLine ? 'bg-[#00B900]' : 'bg-gray-200'}`}
+                      >
+                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-300 ${notifyLine ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                    {notifyLine && (
+                      <div className="mt-4 animate-fade-in">
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1">LINE Notify Token</label>
+                        <input 
+                          type="password"
+                          value={lineToken}
+                          onChange={(e) => updateSetting('lineToken', e.target.value)}
+                          placeholder="วาง Token ที่นี่..."
+                          className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-xs outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                        />
+                        <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">คุณสามารถขอ Token ได้ที่ <a href="https://notify-bot.line.me/" target="_blank" rel="noreferrer" className="text-blue-500 underline">notify-bot.line.me</a></p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-start gap-5">
+                  <div className="bg-gray-900 p-3 rounded-xl shadow-lg shadow-gray-100">
+                    <AlertCircle className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 mb-0.5">Email แจ้งเตือน</h3>
+                    <p className="text-[13px] text-gray-400 mb-4">รับสรุปตารางสอบผ่านทางอีเมล</p>
+                    <button
+                      onClick={() => updateSetting('notifyEmail', !notifyEmail)}
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 ${notifyEmail ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    >
+                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-300 ${notifyEmail ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
       </main>
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 px-2 py-3 flex justify-around items-center z-50">
+        <NavButton active={activeTab === 'home'} onClick={() => setActiveTab('home')} icon={<LayoutDashboard size={20} />} label="หน้าแรก" />
+        <NavButton active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={20} />} label="ปฏิทิน" />
+        <NavButton active={activeTab === 'courses'} onClick={() => setActiveTab('courses')} icon={<BookMarked size={20} />} label="วิชา" />
+        <NavButton active={activeTab === 'planner'} onClick={() => setActiveTab('planner')} icon={<CalendarDays size={20} />} label="ตาราง" />
+        <NavButton active={activeTab === 'degree'} onClick={() => setActiveTab('degree')} icon={<List size={20} />} label="หลักสูตร" />
+        <NavButton active={activeTab === 'notify'} onClick={() => setActiveTab('notify')} icon={<Bell size={20} />} label="ตั้งค่า" />
+      </nav>
+
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 bg-gray-900/90 backdrop-blur-sm text-white px-6 py-3 rounded-xl shadow-lg z-50 animate-fade-in flex items-center gap-3">
+          <CheckCircle size={20} className="text-green-400" />
+          <span className="text-sm font-medium">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Modals */}
+      <EventModal 
+        isOpen={isEventModalOpen} 
+        onClose={() => setIsEventModalOpen(false)} 
+        formData={eventFormData} 
+        setFormData={setEventFormData} 
+        onSave={handleSaveEvent} 
+      />
+
+      <DeleteConfirmModal 
+        isOpen={!!confirmDeleteId} 
+        onClose={() => setConfirmDeleteId(null)} 
+        onConfirm={handleDeleteEvent} 
+      />
+
+      <AddCourseModal 
+        isOpen={isAddCourseModalOpen} 
+        onClose={() => setIsAddCourseModalOpen(false)} 
+        searchQuery={courseSearchQuery} 
+        setSearchQuery={setCourseSearchQuery} 
+        searchResults={degreeSearchResults} 
+        onAddCourse={confirmAddCourseToCategory} 
+      />
+
+      <AddCategoryModal 
+        isOpen={isAddCategoryModalOpen} 
+        onClose={closeAddCategoryModal} 
+        categoryName={newCategoryName} 
+        setCategoryName={setNewCategoryName} 
+        onConfirm={confirmAddCategory} 
+      />
+
+      <ManualCourseModal 
+        isOpen={isManualCourseModalOpen} 
+        onClose={() => setIsManualCourseModalOpen(false)} 
+        formData={manualCourseData} 
+        setFormData={setManualCourseData} 
+        onSave={handleSaveManualCourse} 
+      />
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .animate-scale-up { animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      `}} />
     </div>
   );
 }
