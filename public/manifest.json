@@ -1,21 +1,24 @@
 {
   "name": "RU Planner",
-  "short_name": "RU Plan",
-  "description": "ระบบจัดการตารางเรียนและหลักสูตร ม.รามคำแหง",
+  "short_name": "RU Planner",
+  "description": "ระบบจัดการตารางเรียนและหลักสูตร มหาวิทยาลัยรามคำแหง",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "scope": "/",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/globe.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any"
     },
     {
-      "src": "globe.svg",
+      "src": "/globe.svg",
       "type": "image/svg+xml",
-      "sizes": "any",
+      "sizes": "512x512",
       "purpose": "maskable"
     }
   ]
