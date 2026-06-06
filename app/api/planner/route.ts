@@ -13,19 +13,27 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
 
-    const { data: plannerCourses, error } = await supabase
+    const { data: plannerData, error: plannerError } = await supabase
       .from('planner_courses')
-      .select(`
-        courses (*)
-      `)
+      .select('course_code')
       .eq('user_id', userId);
 
-    if (error) throw error;
+    if (plannerError) throw plannerError;
     
-    // Flatten the join result
-    const flattened = plannerCourses?.map((pc: any) => pc.courses).filter(Boolean) || [];
+    if (!plannerData || plannerData.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    const courseCodes = plannerData.map((p: any) => p.course_code);
     
-    return NextResponse.json(flattened);
+    const { data: courses, error: coursesError } = await supabase
+      .from('courses')
+      .select('*')
+      .in('code', courseCodes);
+
+    if (coursesError) throw coursesError;
+    
+    return NextResponse.json(courses || []);
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Failed to fetch planner courses' }, { status: 500 });
