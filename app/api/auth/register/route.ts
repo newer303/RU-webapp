@@ -4,6 +4,10 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: Request) {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const { name, email, password } = await request.json();
 

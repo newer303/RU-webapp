@@ -86,6 +86,12 @@ export function useAppData() {
         fetch('/api/degree-plan', { cache: 'no-store' })
       ]);
 
+      if (!calRes.ok) console.error('Fetch failed: /api/calendar', calRes.status);
+      if (!coursesRes.ok) console.error('Fetch failed: /api/courses', coursesRes.status);
+      if (!plannerRes.ok) console.error('Fetch failed: /api/planner', plannerRes.status);
+      if (!settingsRes.ok) console.error('Fetch failed: /api/settings', settingsRes.status);
+      if (!degreeRes.ok) console.error('Fetch failed: /api/degree-plan', degreeRes.status);
+
       if (!calRes.ok || !coursesRes.ok || !plannerRes.ok || !settingsRes.ok || !degreeRes.ok) {
         throw new Error('One or more data fetches failed');
       }

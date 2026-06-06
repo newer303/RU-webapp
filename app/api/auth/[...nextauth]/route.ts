@@ -17,6 +17,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
+        if (!supabase) return null;
         if (!credentials?.email || !credentials?.password) return null;
 
         const { data: user, error } = await supabase
@@ -42,6 +43,7 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }: any) {
+      if (!supabase) return false;
       if (account.provider === "google") {
         if (!user.email) return false;
         try {
@@ -68,6 +70,7 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async session({ session, token }: any) {
+      if (!supabase) return session;
       if (session.user) {
         const { data: dbUser } = await supabase
           .from("users")

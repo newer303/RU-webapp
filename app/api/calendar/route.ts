@@ -5,6 +5,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET() {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
@@ -23,6 +27,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
@@ -55,6 +63,10 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
@@ -87,6 +99,10 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';

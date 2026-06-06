@@ -6,6 +6,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET() {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
@@ -22,7 +26,7 @@ export async function GET() {
     const categories = categoriesRes.data || [];
     const completedCourses = completedRes.data || [] as CompletedCourse[];
 
-    const categoriesWithCourses = await Promise.all(categories.map(async (cat) => {
+    const categoriesWithCourses = await Promise.all(categories.map(async (cat: any) => {
       const { data: courses } = await supabase
         .from('degree_courses')
         .select('course_code')
@@ -32,7 +36,7 @@ export async function GET() {
       return {
         ...cat,
         id: String(cat.id),
-        courses: courses?.map((c) => c.course_code) || []
+        courses: courses?.map((c: any) => c.course_code) || []
       };
     }));
 
@@ -49,6 +53,10 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
@@ -73,11 +81,11 @@ export async function PUT(request: Request) {
         .select('id')
         .eq('user_id', userId);
         
-      const existingIds = existingCats?.map(c => String(c.id)) || [];
-      const newIds = categories.map(c => String(c.id));
+      const existingIds = existingCats?.map((c: any) => String(c.id)) || [];
+      const newIds = categories.map((c: any) => String(c.id));
 
       // Delete categories removed from the list
-      const toDelete = existingIds.filter(id => !newIds.includes(id));
+      const toDelete = existingIds.filter((id: string) => !newIds.includes(id));
       if (toDelete.length > 0) {
         console.log('[API PUT] Deleting orphaned categories:', toDelete);
         await supabase.from('degree_courses').delete().in('category_id', toDelete).eq('user_id', userId);
@@ -86,7 +94,7 @@ export async function PUT(request: Request) {
 
       // Upsert categories in the list
       if (categories.length > 0) {
-        const upsertData = categories.map(cat => ({
+        const upsertData = categories.map((cat: any) => ({
           user_id: userId,
           id: String(cat.id),
           name: cat.name,

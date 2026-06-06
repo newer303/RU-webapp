@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
 export async function GET() {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const { data: courses, error } = await supabase.from('courses').select('*');
     if (error) throw error;
@@ -14,6 +18,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const body = await request.json();
     const { code, name, credit, day, time, room, examDate, examTime } = body;
@@ -43,6 +51,10 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Database connection not configured' }, { status: 503 });
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
