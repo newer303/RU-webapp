@@ -91,13 +91,13 @@ export const PlannerTab = ({
             {isExporting ? <Loader2 size={16} className="animate-spin" /> : <ImageIcon size={16} />} 
             เซฟเป็นรูปภาพ
           </button>
-          <button
+          {/* <button
             onClick={handleExportICS}
             disabled={selectedCourses.length === 0}
             className="bg-gray-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-4 py-2 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 disabled:opacity-50"
           >
             <Download size={16} /> ส่งออกปฏิทิน
-          </button>
+          </button> */}
           <button
             onClick={openManualCourseModal}
             className="bg-white dark:bg-zinc-800 border-2 border-blue-100 dark:border-zinc-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-zinc-700 px-4 py-2 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
