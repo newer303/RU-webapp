@@ -1,14 +1,13 @@
 import fs from 'fs';
-import { PDFParse } from 'pdf-parse';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pdf = require('pdf-parse');
 
 async function extractText(filePath) {
     try {
         const dataBuffer = fs.readFileSync(filePath);
-        const parser = new PDFParse({ data: dataBuffer });
-        const info = await parser.getInfo();
-        console.log(`File: ${filePath}, Pages: ${info.total}`);
-        const textResult = await parser.getText();
-        return textResult.text;
+        const data = await pdf(dataBuffer);
+        return data.text;
     } catch (error) {
         return `Error extracting ${filePath}: ${error.message}`;
     }
