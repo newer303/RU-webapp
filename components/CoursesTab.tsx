@@ -84,14 +84,18 @@ export const CoursesTab = ({
         body: JSON.stringify(formData),
       });
 
-      if (!res.ok) throw new Error('Failed to save course');
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.details || data.error || 'Failed to save course');
+      }
       
       setIsModalOpen(false);
       if (showToast) showToast(isEditing ? `อัปเดตวิชา ${formData.code} แล้ว` : `เพิ่มวิชา ${formData.code} เรียบร้อยแล้ว`);
       if (onCourseAdded) onCourseAdded();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      if (showToast) showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      if (showToast) showToast(`เกิดข้อผิดพลาด: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }

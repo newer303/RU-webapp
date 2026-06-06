@@ -41,12 +41,15 @@ export async function POST(request: Request) {
       examTime: examTime || ''
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase upsert error:', error);
+      return NextResponse.json({ error: 'Failed to save to database', details: error.message }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed to save course' }, { status: 500 });
+  } catch (error: any) {
+    console.error('API POST error:', error);
+    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }
 }
 
