@@ -7,10 +7,11 @@ export async function GET() {
 
   return NextResponse.json({
     hasUrl: !!supabaseUrl,
-    urlLength: supabaseUrl ? supabaseUrl.length : 0,
     hasAnonKey: !!supabaseAnonKey,
     hasAuthSecret: !!nextAuthSecret,
-    envKeys: Object.keys(process.env).filter(key => key.startsWith('NEXT_') || key.startsWith('GOOGLE_')),
+    hasVapidPublic: !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    hasVapidPrivate: !!process.env.VAPID_PRIVATE_KEY,
+    envKeys: Object.keys(process.env).filter(key => key.startsWith('NEXT_') || key.startsWith('GOOGLE_') || key.includes('VAPID')),
     nodeEnv: process.env.NODE_ENV
   });
 }
