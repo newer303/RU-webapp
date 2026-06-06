@@ -106,9 +106,9 @@ export default function App() {
       await fetch('/api/web-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           title: 'ทดสอบระบบ',
-          message: 'นี่คือตัวอย่างการแจ้งเตือนจาก RU Planner' 
+          message: 'นี่คือตัวอย่างการแจ้งเตือนจาก RU Planner'
         })
       });
     } catch (err) {
@@ -300,7 +300,7 @@ export default function App() {
                   <div className="flex-1">
                     <h3 className="font-bold text-gray-900 dark:text-zinc-100 mb-0.5">Browser แจ้งเตือน</h3>
                     <p className="text-[13px] text-gray-400 dark:text-zinc-500 mb-4">รับการแจ้งเตือนโดยตรงผ่าน Web Browser</p>
-                    
+
                     {!isPushSupported ? (
                       <p className="text-xs text-red-500 font-medium italic">Browser นี้ไม่รองรับการแจ้งเตือน</p>
                     ) : isSubscribed ? (
@@ -308,7 +308,7 @@ export default function App() {
                         <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full flex items-center gap-1.5">
                           <CheckCircle size={12} /> ลงทะเบียนแล้ว
                         </span>
-                        <button 
+                        <button
                           onClick={testPush}
                           className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
                         >
@@ -327,6 +327,20 @@ export default function App() {
                 </div>
 
                 <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm flex items-start gap-5">
+                  <div className="bg-gray-900 dark:bg-zinc-800 p-3 rounded-xl shadow-lg shadow-gray-100 dark:shadow-none">
+                    <AlertCircle className="text-white" size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 dark:text-zinc-100 mb-0.5">Email แจ้งเตือน</h3>
+                    <p className="text-[13px] text-gray-400 dark:text-zinc-500 mb-4">รับสรุปตารางสอบผ่านทางอีเมล</p>
+                    <button
+                      onClick={() => updateSetting('notifyEmail', !notifyEmail)}
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 ${notifyEmail ? 'bg-blue-600' : 'bg-gray-200 dark:bg-zinc-700'}`}
+                    >
+                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-300 ${notifyEmail ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

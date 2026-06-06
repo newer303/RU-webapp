@@ -4,14 +4,23 @@ import { supabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
-webpush.setVapidDetails(
-  'mailto:your-email@example.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
-  process.env.VAPID_PRIVATE_KEY || ''
-);
+const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+const privateKey = process.env.VAPID_PRIVATE_KEY || '';
+
+if (publicKey && privateKey) {
+  webpush.setVapidDetails(
+    'mailto:your-email@example.com',
+    publicKey,
+    privateKey
+  );
+}
 
 export async function POST(request: Request) {
   try {
+    if (!publicKey || !privateKey) {
+      return NextResponse.json({ error: 'Web Push is not configured on the server' }, { status: 503 });
+    }
+    
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || 'global';
     
