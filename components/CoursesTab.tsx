@@ -413,7 +413,7 @@ export const CoursesTab = ({ courses, onCourseAdded }: CoursesTabProps) => {
       )}
 
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-gray-100 dark:border-zinc-800">
             <div className="p-6 text-center">
               <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-500 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">

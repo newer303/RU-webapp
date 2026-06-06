@@ -280,7 +280,7 @@ export const DegreePlanTab = ({
       </div>
 
       {confirmDeleteCategoryId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-auto bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-auto">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-sm overflow-hidden shadow-xl border border-gray-100 dark:border-zinc-800 transform transition-all animate-scale-up">
             <div className="p-8">
               <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
