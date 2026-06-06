@@ -16,7 +16,7 @@ export async function GET() {
     const { data: events, error } = await supabase
       .from('events')
       .select('*')
-      .eq('user_id', userId);
+      .or(`user_id.eq.${userId},user_id.eq.global`);
       
     if (error) throw error;
     return NextResponse.json(events);
