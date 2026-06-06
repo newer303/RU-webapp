@@ -45,13 +45,36 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md space-y-4 rounded-2xl border bg-card p-8 text-center shadow-lg">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-            <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gray-50 dark:bg-zinc-950 px-4">
+        {/* Background Decor */}
+        <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-green-500/10 blur-3xl" />
+        <div className="absolute -right-20 -bottom-20 h-64 w-64 rounded-full bg-blue-600/10 blur-3xl" />
+
+        <div className="relative w-full max-w-md space-y-6 rounded-2xl border border-gray-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 p-10 text-center shadow-2xl backdrop-blur-sm animate-in zoom-in-95 duration-300">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 shadow-inner">
+            <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400 animate-in fade-in zoom-in duration-500 delay-150 fill-mode-both" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground">สมัครสมาชิกสำเร็จ!</h2>
-          <p className="text-muted-foreground">กำลังพาท่านไปหน้าเข้าสู่ระบบ...</p>
+          
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+              สมัครสมาชิกสำเร็จ!
+            </h2>
+            <p className="text-gray-500 dark:text-zinc-400 font-medium">
+              ยินดีต้อนรับเข้าสู่ครอบครัว RU Planner
+            </p>
+          </div>
+
+          <div className="pt-4">
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 font-bold">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                กำลังพาท่านไปหน้าเข้าสู่ระบบ...
+              </div>
+              <div className="h-1.5 w-full max-w-[200px] overflow-hidden rounded-full bg-gray-100 dark:bg-zinc-800">
+                <div className="h-full bg-green-500 transition-all duration-[2000ms] ease-linear" style={{ width: '100%' }} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
