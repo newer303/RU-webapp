@@ -29,6 +29,48 @@ export const CoursesTab = ({
   const [extractedCourses, setExtractedCourses] = useState<{code: string, name?: string, credit?: number, grade?: string}[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [selectedPrefix, setSelectedPrefix] = useState<string>('ALL');
+
+  const filteredCourses = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    let result = courses;
+    if (query) {
+      result = courses.filter(c => 
+        c.code.toLowerCase().includes(query) || 
+        c.name.toLowerCase().includes(query)
+      );
+    }
+    return result;
+  }, [courses, searchQuery]);
+
+  const groupedCourses = useMemo(() => {
+    const groups: Record<string, Course[]> = {};
+    filteredCourses.forEach(course => {
+      const prefix = course.code.match(/^[A-Z]+/)?.[0] || 'OTHER';
+      if (!groups[prefix]) groups[prefix] = [];
+      groups[prefix].push(course);
+    });
+    return groups;
+  }, [filteredCourses]);
+
+  const sortedPrefixes = useMemo(() => {
+    return Object.keys(groupedCourses).sort();
+  }, [groupedCourses]);
+
+  const allPrefixes = useMemo(() => {
+    const prefixes = new Set<string>();
+    courses.forEach(c => {
+      const prefix = c.code.match(/^[A-Z]+/)?.[0];
+      if (prefix) prefixes.add(prefix);
+    });
+    return Array.from(prefixes).sort();
+  }, [courses]);
+
+  const displayedGroups = useMemo(() => {
+    if (selectedPrefix === 'ALL') return sortedPrefixes;
+    return sortedPrefixes.filter(p => p === selectedPrefix);
+  }, [sortedPrefixes, selectedPrefix]);
+
   const [formData, setFormData] = useState<Course>({
     code: '',
     name: '',
@@ -40,15 +82,6 @@ export const CoursesTab = ({
     examTime: 'เช้า (09:30-12:00)'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const filteredCourses = useMemo(() => {
-    if (!searchQuery) return courses;
-    const query = searchQuery.toLowerCase();
-    return courses.filter(c => 
-      c.code.toLowerCase().includes(query) || 
-      c.name.toLowerCase().includes(query)
-    );
-  }, [courses, searchQuery]);
 
   const handleOpenAddModal = () => {
     setIsEditing(false);
@@ -227,7 +260,7 @@ export const CoursesTab = ({
         </div>
       )}
 
-      <div className="relative mb-8">
+      <div className="relative mb-4">
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
           <Search className="text-gray-400 dark:text-zinc-500" size={18} />
         </div>
@@ -240,79 +273,109 @@ export const CoursesTab = ({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredCourses.length > 0 ? (
-          filteredCourses.map(course => (
-            <div key={course.code} className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm hover:shadow-md dark:hover:border-zinc-700 transition-shadow group relative overflow-hidden">
-              <div className="flex justify-between items-start mb-3">
-                <div className="bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-lg">
-                  <span className="text-blue-700 dark:text-blue-400 font-black text-sm tracking-tight">{course.code}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  {addCourseToPlanner && (
-                    <button 
-                      onClick={() => addCourseToPlanner(course)}
-                      disabled={selectedCourses.some(c => c.code === course.code)}
-                      className={`p-2 rounded-lg transition-all ${selectedCourses.some(c => c.code === course.code) 
-                        ? 'text-green-500 bg-green-50 dark:bg-green-900/20' 
-                        : 'text-gray-400 dark:text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
-                      title={selectedCourses.some(c => c.code === course.code) ? 'อยู่ในตารางแล้ว' : 'เพิ่มเข้าตารางเรียน'}
-                    >
-                      {selectedCourses.some(c => c.code === course.code) ? <CheckCircle size={16} /> : <Plus size={16} />}
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => handleOpenEditModal(course)}
-                    className="p-2 text-gray-400 dark:text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
-                    title="แก้ไขวิชา"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button 
-                    onClick={() => handleOpenDeleteModal(course.code)}
-                    className="p-2 text-gray-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                    title="ลบวิชา"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+      <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide no-scrollbar">
+        <button
+          onClick={() => setSelectedPrefix('ALL')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${selectedPrefix === 'ALL' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800'}`}
+        >
+          ทั้งหมด
+        </button>
+        {allPrefixes.map(prefix => (
+          <button
+            key={prefix}
+            onClick={() => setSelectedPrefix(prefix)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${selectedPrefix === prefix ? 'bg-blue-600 text-white' : 'bg-white dark:bg-zinc-900 text-gray-500 dark:text-zinc-400 border border-gray-100 dark:border-zinc-800'}`}
+          >
+            {prefix}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-8">
+        {displayedGroups.length > 0 ? (
+          displayedGroups.map(prefix => (
+            <div key={prefix} className="animate-fade-in">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-px flex-1 bg-gray-100 dark:bg-zinc-800"></div>
+                <h3 className="font-black text-blue-600 dark:text-blue-500 uppercase tracking-widest text-sm">{prefix} ({groupedCourses[prefix].length})</h3>
+                <div className="h-px flex-1 bg-gray-100 dark:bg-zinc-800"></div>
               </div>
               
-              <h4 className="font-bold text-gray-900 dark:text-zinc-100 mb-4 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pr-10">{course.name}</h4>
-              
-              <div className="grid grid-cols-2 gap-y-3">
-                <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
-                  <div className="p-1.5 bg-gray-50 dark:bg-zinc-800 rounded-lg text-blue-500 dark:text-blue-400">
-                    <Clock size={12} />
-                  </div>
-                  <span>{course.day || '-'} {course.time || ''}</span>
-                </div>
-                
-                <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
-                  <div className="p-1.5 bg-gray-50 dark:bg-zinc-800 rounded-lg text-green-500 dark:text-green-400">
-                    <MapPin size={12} />
-                  </div>
-                  <span className="truncate">{course.room || '-'}</span>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {groupedCourses[prefix].map(course => (
+                  <div key={course.code} className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm hover:shadow-md dark:hover:border-zinc-700 transition-shadow group relative overflow-hidden">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-lg">
+                        <span className="text-blue-700 dark:text-blue-400 font-black text-sm tracking-tight">{course.code}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {addCourseToPlanner && (
+                          <button 
+                            onClick={() => addCourseToPlanner(course)}
+                            disabled={selectedCourses.some(c => c.code === course.code)}
+                            className={`p-2 rounded-lg transition-all ${selectedCourses.some(c => c.code === course.code) 
+                              ? 'text-green-500 bg-green-50 dark:bg-green-900/20' 
+                              : 'text-gray-400 dark:text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+                            title={selectedCourses.some(c => c.code === course.code) ? 'อยู่ในตารางแล้ว' : 'เพิ่มเข้าตารางเรียน'}
+                          >
+                            {selectedCourses.some(c => c.code === course.code) ? <CheckCircle size={16} /> : <Plus size={16} />}
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleOpenEditModal(course)}
+                          className="p-2 text-gray-400 dark:text-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                          title="แก้ไขวิชา"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleOpenDeleteModal(course.code)}
+                          className="p-2 text-gray-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                          title="ลบวิชา"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <h4 className="font-bold text-gray-900 dark:text-zinc-100 mb-4 line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pr-10">{course.name}</h4>
+                    
+                    <div className="grid grid-cols-2 gap-y-3">
+                      <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
+                        <div className="p-1.5 bg-gray-50 dark:bg-zinc-800 rounded-lg text-blue-500 dark:text-blue-400">
+                          <Clock size={12} />
+                        </div>
+                        <span>{course.day || '-'} {course.time || ''}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
+                        <div className="p-1.5 bg-gray-50 dark:bg-zinc-800 rounded-lg text-green-500 dark:text-green-400">
+                          <MapPin size={12} />
+                        </div>
+                        <span className="truncate">{course.room || '-'}</span>
+                      </div>
 
-                <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
-                  <div className="p-1.5 bg-gray-50 dark:bg-zinc-800 rounded-lg text-orange-500 dark:text-orange-400">
-                    <Calendar size={12} />
-                  </div>
-                  <span>{course.examDate || 'ไม่มีข้อมูลสอบ'}</span>
-                </div>
+                      <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
+                        <div className="p-1.5 bg-gray-50 dark:bg-zinc-800 rounded-lg text-orange-500 dark:text-orange-400">
+                          <Calendar size={12} />
+                        </div>
+                        <span>{course.examDate || 'ไม่มีข้อมูลสอบ'}</span>
+                      </div>
 
-                <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
-                  <div className="p-1.5 bg-gray-50 dark:bg-zinc-800 rounded-lg text-purple-500 dark:text-purple-400">
-                    <Info size={12} />
+                      <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-zinc-400 font-medium">
+                        <div className="p-1.5 bg-gray-50 dark:bg-zinc-800 rounded-lg text-purple-500 dark:text-purple-400">
+                          <Info size={12} />
+                        </div>
+                        <span>{course.examTime || '-'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <span>{course.examTime || '-'}</span>
-                </div>
+                ))}
               </div>
             </div>
           ))
         ) : (
-          <div className="col-span-full py-20 text-center bg-white dark:bg-zinc-900 rounded-2xl border border-dashed border-gray-200 dark:border-zinc-800">
+          <div className="py-20 text-center bg-white dark:bg-zinc-900 rounded-2xl border border-dashed border-gray-200 dark:border-zinc-800">
             <Search size={48} className="mx-auto text-gray-200 dark:text-zinc-800 mb-4" />
             <p className="text-gray-400 dark:text-zinc-500 text-sm font-medium">ไม่พบวิชาที่ค้นหา</p>
           </div>
