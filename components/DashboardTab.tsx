@@ -93,11 +93,8 @@ export const DashboardTab = ({
                 <span className="text-sm font-black uppercase tracking-[0.2em] text-blue-100/80">Student Profile</span>
               </div>
               <h1 className="text-3xl md:text-5xl font-black mb-3 tracking-tight">
-                สวัสดี, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-white/70">{userName || 'Student'}</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-blue-100 to-white/70">{userName || 'Student'}</span>
               </h1>
-              <p className="text-blue-100/70 text-base md:text-lg max-w-md font-medium leading-relaxed">
-                ยินดีต้อนรับกลับมา! วันนี้มีเป้าหมายอะไรใหม่ๆ ในการเรียนบ้างไหม?
-              </p>
             </div>
 
             <div className="flex flex-wrap gap-4 mt-10">
@@ -146,44 +143,85 @@ export const DashboardTab = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Side: Exams & Events */}
         <div className="lg:col-span-8 space-y-8">
-          {/* Upcoming Exams Bento */}
+          {/* Upcoming Exams Bento - Modern Redesign */}
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden animate-slide-up stagger-2 bento-card">
-            <div className="p-8 pb-4 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
-                  <AlertCircle className="text-red-500" size={20} />
+            <div className="p-8 pb-6 flex justify-between items-center relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center border border-red-500/20">
+                  <Calendar className="text-red-500" size={24} />
                 </div>
-                <h3 className="font-black text-xl text-slate-900 dark:text-white uppercase tracking-tight">ตารางสอบเร็วๆ นี้</h3>
+                <div>
+                  <h3 className="font-black text-xl text-slate-900 dark:text-white tracking-tight leading-tight">ตารางสอบเร็วๆ นี้</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Exam Countdown</p>
+                </div>
               </div>
               <button 
                 onClick={() => onNavigate('planner')} 
-                className="text-xs font-black text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-4 py-2 rounded-full transition-all"
+                className="group flex items-center gap-2 px-5 py-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-600 dark:text-slate-300 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-sm"
               >
-                ดูทั้งหมด
+                ดูทั้งหมด <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
 
-            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="px-6 pb-8 space-y-4">
               {upcomingExams.length > 0 ? (
-                upcomingExams.map((course, idx) => (
-                  <div key={course.code} className="group/item relative bg-slate-50 dark:bg-slate-800/40 p-5 rounded-[1.75rem] border border-transparent hover:border-red-200 dark:hover:border-red-900/30 transition-all duration-300">
-                    <div className="mb-4 flex justify-between items-start">
-                      <div className="bg-white dark:bg-slate-700 w-10 h-10 rounded-xl shadow-sm flex flex-col items-center justify-center leading-none">
-                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 mb-0.5">DATE</span>
-                        <span className="text-sm font-black text-red-600 dark:text-red-400">{course.examDate.split('-')[2]}</span>
+                upcomingExams.map((course, idx) => {
+                  const examDateObj = new Date(course.examDate);
+                  const today = new Date();
+                  const diffTime = examDateObj.getTime() - today.getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  
+                  const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+                  const month = monthNames[examDateObj.getMonth()];
+                  const day = examDateObj.getDate();
+
+                  return (
+                    <div key={course.code} className="group/item flex items-center gap-6 p-5 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-transparent hover:border-red-500/20 hover:bg-white dark:hover:bg-slate-800 transition-all duration-500">
+                      {/* Calendar Badge */}
+                      <div className="flex-shrink-0 w-16 h-20 bg-white dark:bg-slate-700 rounded-[1.25rem] shadow-sm border border-slate-100 dark:border-slate-600 flex flex-col overflow-hidden text-center group-hover/item:scale-105 transition-transform duration-500">
+                        <div className="bg-red-600 py-1 text-[9px] font-black text-white uppercase tracking-wider">{month}</div>
+                        <div className="flex-1 flex items-center justify-center text-2xl font-black text-slate-900 dark:text-white">{day}</div>
                       </div>
-                      <span className="px-2 py-0.5 bg-white dark:bg-slate-700 text-[9px] font-black rounded-lg text-slate-400 dark:text-slate-500 shadow-sm">{course.examTime}</span>
+
+                      {/* Course Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-[9px] font-black text-blue-600 dark:text-blue-400 rounded-lg uppercase tracking-wider">{course.code}</span>
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                            <Clock size={12} /> {course.examTime}
+                          </span>
+                        </div>
+                        <h4 className="font-black text-base text-slate-800 dark:text-white truncate group-hover/item:text-blue-600 dark:group-hover/item:text-blue-400 transition-colors">{course.name}</h4>
+                        <div className="flex items-center gap-4 mt-2">
+                           <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                             <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                             {course.room || 'รอระบุห้อง'}
+                           </div>
+                        </div>
+                      </div>
+
+                      {/* Countdown */}
+                      <div className="hidden sm:flex flex-col items-end">
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${diffDays <= 3 ? 'text-red-500' : 'text-slate-400'}`}>
+                          {diffDays === 0 ? 'Today' : diffDays < 0 ? 'Passed' : `In ${diffDays} days`}
+                        </span>
+                        <div className={`mt-1.5 h-1.5 w-20 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden`}>
+                           <div 
+                             className={`h-full transition-all duration-1000 ${diffDays <= 3 ? 'bg-red-500' : 'bg-emerald-500'}`} 
+                             style={{ width: `${Math.max(0, Math.min(100, 100 - (diffDays * 5)))}%` }}
+                           ></div>
+                        </div>
+                      </div>
                     </div>
-                    <p className="font-black text-slate-900 dark:text-white text-lg mb-1 truncate">{course.code}</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold truncate line-clamp-1">{course.name}</p>
-                  </div>
-                ))
+                  );
+                })
               ) : (
-                <div className="col-span-3 py-10 text-center">
-                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-slate-200 dark:border-slate-700">
-                    <Calendar className="text-slate-300 dark:text-slate-600" size={24} />
+                <div className="py-12 text-center">
+                  <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 border-2 border-dashed border-slate-200 dark:border-slate-700">
+                    <Calendar className="text-slate-300 dark:text-slate-600" size={32} />
                   </div>
-                  <p className="text-slate-400 dark:text-slate-500 text-sm font-bold italic">ยังไม่มีวิชาที่มีกำหนดการสอบ</p>
+                  <h4 className="text-slate-400 dark:text-slate-500 text-sm font-black uppercase tracking-widest">No Exams Found</h4>
+                  <p className="text-[11px] text-slate-300 dark:text-slate-600 font-bold mt-1">Add courses to see your exam schedule</p>
                 </div>
               )}
             </div>
